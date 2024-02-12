@@ -33,6 +33,7 @@ class MobileScannerController {
     this.autoStart = true,
     this.cameraResolution,
     this.useNewCameraSelector = false,
+    this.useAutoZoom = false,
   });
 
   /// Select which camera should be used.
@@ -89,6 +90,8 @@ class MobileScannerController {
   ///
   /// Only supported on Android
   final bool useNewCameraSelector;
+
+  final bool useAutoZoom;
 
   /// Sets the barcode stream
   final StreamController<BarcodeCapture> _barcodesController =
@@ -153,6 +156,7 @@ class MobileScannerController {
     arguments['timeout'] = detectionTimeoutMs;
     arguments['returnImage'] = returnImage;
     arguments['useNewCameraSelector'] = useNewCameraSelector;
+    arguments['useAutoZoom'] = useAutoZoom;
 
     /*    if (scanWindow != null) {
       arguments['scanWindow'] = [
