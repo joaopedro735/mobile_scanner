@@ -24,7 +24,8 @@ class MobileScannerHandler(
     binaryMessenger: BinaryMessenger,
     private val permissions: MobileScannerPermissions,
     private val addPermissionListener: (RequestPermissionsResultListener) -> Unit,
-    textureRegistry: TextureRegistry): MethodChannel.MethodCallHandler {
+    textureRegistry: TextureRegistry
+) : MethodChannel.MethodCallHandler {
 
     private val analyzeImageErrorCallback: AnalyzerErrorCallback = {
         Handler(Looper.getMainLooper()).post {
@@ -45,28 +46,35 @@ class MobileScannerHandler(
 
     private var analyzerResult: MethodChannel.Result? = null
 
-    private val callback: MobileScannerCallback = { barcodes: List<Map<String, Any?>>, image: ByteArray?, width: Int?, height: Int? ->
-        if (image != null) {
-            barcodeHandler.publishEvent(mapOf(
-                "name" to "barcode",
-                "data" to barcodes,
-                "image" to image,
-                "width" to width!!.toDouble(),
-                "height" to height!!.toDouble()
-            ))
-        } else {
-            barcodeHandler.publishEvent(mapOf(
-                "name" to "barcode",
-                "data" to barcodes
-            ))
+    private val callback: MobileScannerCallback =
+        { barcodes: List<Map<String, Any?>>, image: ByteArray?, width: Int?, height: Int? ->
+            if (image != null) {
+                barcodeHandler.publishEvent(
+                    mapOf(
+                        "name" to "barcode",
+                        "data" to barcodes,
+                        "image" to image,
+                        "width" to width!!.toDouble(),
+                        "height" to height!!.toDouble()
+                    )
+                )
+            } else {
+                barcodeHandler.publishEvent(
+                    mapOf(
+                        "name" to "barcode",
+                        "data" to barcodes
+                    )
+                )
+            }
         }
-    }
 
-    private val errorCallback: MobileScannerErrorCallback = {error: String ->
-        barcodeHandler.publishEvent(mapOf(
-            "name" to "error",
-            "data" to error,
-        ))
+    private val errorCallback: MobileScannerErrorCallback = { error: String ->
+        barcodeHandler.publishEvent(
+            mapOf(
+                "name" to "error",
+                "data" to error,
+            )
+        )
     }
 
     private var methodChannel: MethodChannel? = null
@@ -78,13 +86,15 @@ class MobileScannerHandler(
         barcodeHandler.publishEvent(mapOf("name" to "torchState", "data" to state))
     }
 
-    private val zoomScaleStateCallback: ZoomScaleStateCallback = {zoomScale: Double ->
+    private val zoomScaleStateCallback: ZoomScaleStateCallback = { zoomScale: Double ->
         barcodeHandler.publishEvent(mapOf("name" to "zoomScaleState", "data" to zoomScale))
     }
 
     init {
-        methodChannel = MethodChannel(binaryMessenger,
-            "dev.steenbakker.mobile_scanner/scanner/method")
+        methodChannel = MethodChannel(
+            binaryMessenger,
+            "dev.steenbakker.mobile_scanner/scanner/method"
+        )
         methodChannel!!.setMethodCallHandler(this)
         mobileScanner = MobileScanner(activity, textureRegistry, callback, errorCallback)
     }
@@ -96,7 +106,7 @@ class MobileScannerHandler(
 
         val listener: RequestPermissionsResultListener? = permissions.getPermissionListener()
 
-        if(listener != null) {
+        if (listener != null) {
             activityPluginBinding.removeRequestPermissionsResultListener(listener)
         }
     }
@@ -112,15 +122,16 @@ class MobileScannerHandler(
             "request" -> permissions.requestPermission(
                 activity,
                 addPermissionListener,
-                object: MobileScannerPermissions.ResultCallback {
+                object : MobileScannerPermissions.ResultCallback {
                     override fun onResult(errorCode: String?, errorDescription: String?) {
-                        when(errorCode) {
+                        when (errorCode) {
                             null -> result.success(true)
                             MobileScannerPermissions.CAMERA_ACCESS_DENIED -> result.success(false)
                             else -> result.error(errorCode, errorDescription, null)
                         }
                     }
                 })
+
             "start" -> start(call, result)
             "stop" -> stop(result)
             "toggleTorch" -> toggleTorch(result)
@@ -142,13 +153,14 @@ class MobileScannerHandler(
         val timeout: Int = call.argument<Int>("timeout") ?: 250
         val cameraResolutionValues: List<Int>? = call.argument<List<Int>>("cameraResolution")
         val useNewCameraSelector: Boolean = call.argument<Boolean>("useNewCameraSelector") ?: false
+        val useAutoZoom: Boolean = call.argument<Boolean>("useAutoZoom") ?: false
         val cameraResolution: Size? = if (cameraResolutionValues != null) {
             Size(cameraResolutionValues[0], cameraResolutionValues[1])
         } else {
             null
         }
 
-        var barcodeScannerOptions: BarcodeScannerOptions? = null
+        var barcodeScannerOptions: BarcodeScannerOptions.Builder? = null
         if (formats != null) {
             val formatsList: MutableList<Int> = mutableListOf()
             for (formatValue in formats) {
@@ -156,12 +168,12 @@ class MobileScannerHandler(
             }
             barcodeScannerOptions = if (formatsList.size == 1) {
                 BarcodeScannerOptions.Builder().setBarcodeFormats(formatsList.first())
-                    .build()
+
             } else {
                 BarcodeScannerOptions.Builder().setBarcodeFormats(
                     formatsList.first(),
                     *formatsList.subList(1, formatsList.size).toIntArray()
-                ).build()
+                )
             }
         }
 
@@ -199,6 +211,7 @@ class MobileScannerHandler(
                                 null
                             )
                         }
+
                         is CameraError -> {
                             result.error(
                                 "MobileScanner",
@@ -206,6 +219,7 @@ class MobileScannerHandler(
                                 null
                             )
                         }
+
                         is NoCamera -> {
                             result.error(
                                 "MobileScanner",
@@ -213,6 +227,7 @@ class MobileScannerHandler(
                                 null
                             )
                         }
+
                         else -> {
                             result.error(
                                 "MobileScanner",
@@ -225,7 +240,8 @@ class MobileScannerHandler(
             },
             timeout.toLong(),
             cameraResolution,
-            useNewCameraSelector
+            useNewCameraSelector,
+            useAutoZoom
         )
     }
 

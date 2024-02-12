@@ -28,6 +28,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.ZoomSuggestionOptions
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import dev.steenbakker.mobile_scanner.objects.DetectionSpeed
@@ -106,13 +107,20 @@ class MobileScanner(
                 if (barcodeMap.isNotEmpty()) {
                     if (returnImage) {
 
-                        val bitmap = Bitmap.createBitmap(mediaImage.width, mediaImage.height, Bitmap.Config.ARGB_8888)
+                        val bitmap = Bitmap.createBitmap(
+                            mediaImage.width,
+                            mediaImage.height,
+                            Bitmap.Config.ARGB_8888
+                        )
 
                         val imageFormat = YuvToRgbConverter(activity.applicationContext)
 
                         imageFormat.yuvToRgb(mediaImage, bitmap)
 
-                        val bmResult = rotateBitmap(bitmap, camera?.cameraInfo?.sensorRotationDegrees?.toFloat() ?: 90f)
+                        val bmResult = rotateBitmap(
+                            bitmap,
+                            camera?.cameraInfo?.sensorRotationDegrees?.toFloat() ?: 90f
+                        )
 
                         val stream = ByteArrayOutputStream()
                         bmResult.compress(Bitmap.CompressFormat.PNG, 100, stream)
@@ -195,7 +203,8 @@ class MobileScanner(
         val rotation = if (Build.VERSION.SDK_INT >= 30) {
             activity.display!!.rotation
         } else {
-            val windowManager = activity.applicationContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            val windowManager =
+                activity.applicationContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
             windowManager.defaultDisplay.rotation
         }
@@ -203,11 +212,12 @@ class MobileScanner(
         val widthMaxRes = cameraResolution.width
         val heightMaxRes = cameraResolution.height
 
-        val targetResolution = if (rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) {
-            Size(widthMaxRes, heightMaxRes) // Portrait mode
-        } else {
-            Size(heightMaxRes, widthMaxRes) // Landscape mode
-        }
+        val targetResolution =
+            if (rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) {
+                Size(widthMaxRes, heightMaxRes) // Portrait mode
+            } else {
+                Size(heightMaxRes, widthMaxRes) // Landscape mode
+            }
         return targetResolution
     }
 
@@ -216,7 +226,7 @@ class MobileScanner(
      */
     @ExperimentalGetImage
     fun start(
-        barcodeScannerOptions: BarcodeScannerOptions?,
+        barcodeScannerOptionsBuilder: BarcodeScannerOptions.Builder?,
         returnImage: Boolean,
         cameraPosition: CameraSelector,
         torch: Boolean,
@@ -227,7 +237,8 @@ class MobileScanner(
         mobileScannerErrorCallback: (exception: Exception) -> Unit,
         detectionTimeout: Long,
         cameraResolution: Size?,
-        newCameraResolutionSelector: Boolean
+        newCameraResolutionSelector: Boolean,
+        useAutoZoom: Boolean
     ) {
         this.detectionSpeed = detectionSpeed
         this.detectionTimeout = detectionTimeout
@@ -240,8 +251,15 @@ class MobileScanner(
         }
 
         lastScanned = null
+        val barcodeScannerOptions: BarcodeScannerOptions.Builder? = barcodeScannerOptionsBuilder
+                ?: if (useAutoZoom) {
+                    BarcodeScannerOptions.Builder()
+                } else {
+                    null
+                }
+
         scanner = if (barcodeScannerOptions != null) {
-            BarcodeScanning.getClient(barcodeScannerOptions)
+            BarcodeScanning.getClient(barcodeScannerOptions.build())
         } else {
             BarcodeScanning.getClient()
         }
@@ -285,7 +303,8 @@ class MobileScanner(
             // Build the analyzer to be passed on to MLKit
             val analysisBuilder = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            val displayManager = activity.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+            val displayManager =
+                activity.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
 
             if (cameraResolution != null) {
                 if (newCameraResolutionSelector) {
@@ -317,7 +336,8 @@ class MobileScanner(
                                         ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
                                     )
                                 )
-                                analysisBuilder.setResolutionSelector(selectorBuilder.build()).build()
+                                analysisBuilder.setResolutionSelector(selectorBuilder.build())
+                                    .build()
                             } else {
                                 @Suppress("DEPRECATION")
                                 analysisBuilder.setTargetResolution(getResolution(cameraResolution))
@@ -340,7 +360,7 @@ class MobileScanner(
                     preview,
                     analysis
                 )
-            } catch(exception: Exception) {
+            } catch (exception: Exception) {
                 mobileScannerErrorCallback(NoCamera())
 
                 return@addListener
@@ -362,12 +382,25 @@ class MobileScanner(
                 if (it.cameraInfo.hasFlashUnit()) {
                     it.cameraControl.enableTorch(torch)
                 }
+
             }
 
             val resolution = analysis.resolutionInfo!!.resolution
             val width = resolution.width.toDouble()
             val height = resolution.height.toDouble()
             val portrait = (camera?.cameraInfo?.sensorRotationDegrees ?: 0) % 180 == 0
+            val maxZoomRatio = camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 0f
+
+            if (barcodeScannerOptions != null && useAutoZoom) {
+                scanner =
+                    BarcodeScanning.getClient(
+                        barcodeScannerOptions.setZoomSuggestionOptions(
+                            ZoomSuggestionOptions.Builder(
+                                ZoomSuggestionOptions.ZoomCallback(::setZoom)
+                            ).setMaxSupportedZoomRatio(maxZoomRatio).build()
+                        ).build()
+                    )
+            }
 
             // Start with 'unavailable' torch state.
             var currentTorchState: Int = -1
@@ -392,6 +425,7 @@ class MobileScanner(
         }, executor)
 
     }
+
     /**
      * Stop barcode scanning.
      */
@@ -401,7 +435,8 @@ class MobileScanner(
         }
 
         if (displayListener != null) {
-            val displayManager = activity.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+            val displayManager =
+                activity.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
 
             displayManager.unregisterDisplayListener(displayListener)
             displayListener = null
@@ -455,6 +490,13 @@ class MobileScanner(
             .addOnFailureListener { e ->
                 onError(e.localizedMessage ?: e.toString())
             }
+    }
+
+
+    private fun setZoom(zoomRatio: Float): Boolean {
+        if (camera == null) return false
+        camera?.cameraControl?.setZoomRatio(zoomRatio)
+        return true
     }
 
     /**
