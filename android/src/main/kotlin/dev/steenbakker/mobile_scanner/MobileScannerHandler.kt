@@ -143,13 +143,14 @@ class MobileScannerHandler(
         val timeout: Int = call.argument<Int>("timeout") ?: 250
         val cameraResolutionValues: List<Int>? = call.argument<List<Int>>("cameraResolution")
         val useNewCameraSelector: Boolean = call.argument<Boolean>("useNewCameraSelector") ?: false
+        val useAutoZoom: Boolean = call.argument<Boolean>("useAutoZoom") ?: false
         val cameraResolution: Size? = if (cameraResolutionValues != null) {
             Size(cameraResolutionValues[0], cameraResolutionValues[1])
         } else {
             null
         }
 
-        var barcodeScannerOptions: BarcodeScannerOptions? = null
+        var barcodeScannerOptions: BarcodeScannerOptions.Builder? = null
         if (formats != null) {
             val formatsList: MutableList<Int> = mutableListOf()
             for (formatValue in formats) {
@@ -157,12 +158,12 @@ class MobileScannerHandler(
             }
             barcodeScannerOptions = if (formatsList.size == 1) {
                 BarcodeScannerOptions.Builder().setBarcodeFormats(formatsList.first())
-                    .build()
+
             } else {
                 BarcodeScannerOptions.Builder().setBarcodeFormats(
                     formatsList.first(),
                     *formatsList.subList(1, formatsList.size).toIntArray()
-                ).build()
+                )
             }
         }
 
@@ -226,7 +227,8 @@ class MobileScannerHandler(
             },
             timeout.toLong(),
             cameraResolution,
-            useNewCameraSelector
+            useNewCameraSelector,
+            useAutoZoom
         )
     }
 

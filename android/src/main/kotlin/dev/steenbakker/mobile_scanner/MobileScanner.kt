@@ -29,6 +29,7 @@ import androidx.lifecycle.LifecycleOwner
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.ZoomSuggestionOptions
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import dev.steenbakker.mobile_scanner.objects.DetectionSpeed
@@ -234,7 +235,7 @@ class MobileScanner(
      */
     @ExperimentalGetImage
     fun start(
-        barcodeScannerOptions: BarcodeScannerOptions?,
+        barcodeScannerOptionsBuilder: BarcodeScannerOptions.Builder?,
         returnImage: Boolean,
         cameraPosition: CameraSelector,
         torch: Boolean,
@@ -245,7 +246,8 @@ class MobileScanner(
         mobileScannerErrorCallback: (exception: Exception) -> Unit,
         detectionTimeout: Long,
         cameraResolution: Size?,
-        newCameraResolutionSelector: Boolean
+        newCameraResolutionSelector: Boolean,
+        useAutoZoom: Boolean
     ) {
         this.detectionSpeed = detectionSpeed
         this.detectionTimeout = detectionTimeout
@@ -258,7 +260,18 @@ class MobileScanner(
         }
 
         lastScanned = null
-        scanner = barcodeScannerFactory(barcodeScannerOptions)
+        val barcodeScannerOptions: BarcodeScannerOptions.Builder? = barcodeScannerOptionsBuilder
+                ?: if (useAutoZoom) {
+                    BarcodeScannerOptions.Builder()
+                } else {
+                    null
+                }
+
+        scanner = if (barcodeScannerOptions != null) {
+            BarcodeScanning.getClient(barcodeScannerOptions.build())
+        } else {
+            BarcodeScanning.getClient()
+        }
 
         val cameraProviderFuture = ProcessCameraProvider.getInstance(activity)
         val executor = ContextCompat.getMainExecutor(activity)
@@ -382,6 +395,18 @@ class MobileScanner(
             val width = resolution.width.toDouble()
             val height = resolution.height.toDouble()
             val portrait = (camera?.cameraInfo?.sensorRotationDegrees ?: 0) % 180 == 0
+            val maxZoomRatio = camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 0f
+
+            if (barcodeScannerOptions != null && useAutoZoom) {
+                scanner =
+                    BarcodeScanning.getClient(
+                        barcodeScannerOptions.setZoomSuggestionOptions(
+                            ZoomSuggestionOptions.Builder(
+                                ZoomSuggestionOptions.ZoomCallback(::setZoom)
+                            ).setMaxSupportedZoomRatio(maxZoomRatio).build()
+                        ).build()
+                    )
+            }
 
             // Start with 'unavailable' torch state.
             var currentTorchState: Int = -1
@@ -489,6 +514,13 @@ class MobileScanner(
         }.addOnCompleteListener {
             barcodeScanner.close()
         }
+    }
+
+
+    private fun setZoom(zoomRatio: Float): Boolean {
+        if (camera == null) return false
+        camera?.cameraControl?.setZoomRatio(zoomRatio)
+        return true
     }
 
     /**
