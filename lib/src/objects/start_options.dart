@@ -15,6 +15,7 @@ class StartOptions {
     required this.returnImage,
     required this.torchEnabled,
     required this.useNewCameraSelector,
+    required this.useAutoZoom,
   });
 
   /// The direction for the camera.
@@ -43,6 +44,8 @@ class StartOptions {
   /// This option is only supported on Android. Other platforms will ignore this option.
   final bool useNewCameraSelector;
 
+  final bool useAutoZoom;
+
   Map<String, Object?> toMap() {
     return <String, Object?>{
       if (cameraResolution != null)
@@ -58,6 +61,7 @@ class StartOptions {
       'timeout': detectionTimeoutMs,
       'torch': torchEnabled,
       'useNewCameraSelector': useNewCameraSelector,
+      'useAutoZoom': useAutoZoom,
     };
   }
 }

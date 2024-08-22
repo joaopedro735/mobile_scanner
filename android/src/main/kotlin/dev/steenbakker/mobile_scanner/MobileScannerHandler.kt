@@ -138,13 +138,14 @@ class MobileScannerHandler(
         val timeout: Int = call.argument<Int>("timeout") ?: 250
         val cameraResolutionValues: List<Int>? = call.argument<List<Int>>("cameraResolution")
         val useNewCameraSelector: Boolean = call.argument<Boolean>("useNewCameraSelector") ?: false
+        val useAutoZoom: Boolean = call.argument<Boolean>("useAutoZoom") ?: false
         val cameraResolution: Size? = if (cameraResolutionValues != null) {
             Size(cameraResolutionValues[0], cameraResolutionValues[1])
         } else {
             null
         }
 
-        val barcodeScannerOptions: BarcodeScannerOptions? = buildBarcodeScannerOptions(formats)
+        val barcodeScannerOptions: BarcodeScannerOptions.Builder? = buildBarcodeScannerOptions(formats)
 
         val position =
             if (facing == 0) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
@@ -209,7 +210,8 @@ class MobileScannerHandler(
             },
             timeout.toLong(),
             cameraResolution,
-            useNewCameraSelector
+            useNewCameraSelector,
+            useAutoZoom
         )
     }
 
@@ -269,7 +271,7 @@ class MobileScannerHandler(
         result.success(null)
     }
 
-    private fun buildBarcodeScannerOptions(formats: List<Int>?): BarcodeScannerOptions? {
+    private fun buildBarcodeScannerOptions(formats: List<Int>?): BarcodeScannerOptions.Builder? {
         if (formats == null) {
             return null
         }
@@ -282,12 +284,10 @@ class MobileScannerHandler(
 
         if (formatsList.size == 1) {
             return BarcodeScannerOptions.Builder().setBarcodeFormats(formatsList.first())
-                .build()
         }
 
         return BarcodeScannerOptions.Builder().setBarcodeFormats(
             formatsList.first(),
             *formatsList.subList(1, formatsList.size).toIntArray()
-        ).build()
     }
 }
