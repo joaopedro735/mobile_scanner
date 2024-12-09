@@ -44,7 +44,7 @@ class MobileScanner(
     private val textureRegistry: TextureRegistry,
     private val mobileScannerCallback: MobileScannerCallback,
     private val mobileScannerErrorCallback: MobileScannerErrorCallback,
-    private val barcodeScannerFactory: (options: BarcodeScannerOptions?) -> BarcodeScanner = ::defaultBarcodeScannerFactory,
+    private val barcodeScannerFactory: (options: BarcodeScannerOptions.Builder?) -> BarcodeScanner = ::defaultBarcodeScannerFactory,
 ) {
 
     /// Internal variables
@@ -67,8 +67,8 @@ class MobileScanner(
         /**
          * Create a barcode scanner from the given options.
          */
-        fun defaultBarcodeScannerFactory(options: BarcodeScannerOptions?) : BarcodeScanner {
-            return if (options == null) BarcodeScanning.getClient() else BarcodeScanning.getClient(options)
+        fun defaultBarcodeScannerFactory(options: BarcodeScannerOptions.Builder?) : BarcodeScanner {
+            return if (options == null) BarcodeScanning.getClient() else BarcodeScanning.getClient(options.build())
         }
     }
 
@@ -266,11 +266,7 @@ class MobileScanner(
                     null
                 }
 
-        scanner = if (barcodeScannerOptions != null) {
-            BarcodeScanning.getClient(barcodeScannerOptions.build())
-        } else {
-            BarcodeScanning.getClient()
-        }
+        scanner = barcodeScannerFactory(barcodeScannerOptions)
 
         val cameraProviderFuture = ProcessCameraProvider.getInstance(activity)
         val executor = ContextCompat.getMainExecutor(activity)
@@ -492,7 +488,7 @@ class MobileScanner(
      */
     fun analyzeImage(
         image: Uri,
-        scannerOptions: BarcodeScannerOptions?,
+        scannerOptions: BarcodeScannerOptions.Builder?,
         onSuccess: AnalyzerSuccessCallback,
         onError: AnalyzerErrorCallback) {
         val inputImage = InputImage.fromFilePath(activity, image)

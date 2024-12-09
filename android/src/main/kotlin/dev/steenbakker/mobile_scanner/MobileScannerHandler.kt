@@ -289,5 +289,6 @@ class MobileScannerHandler(
         return BarcodeScannerOptions.Builder().setBarcodeFormats(
             formatsList.first(),
             *formatsList.subList(1, formatsList.size).toIntArray()
+        )
     }
 }
